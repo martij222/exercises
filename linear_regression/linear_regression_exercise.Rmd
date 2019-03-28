@@ -1,0 +1,295 @@
+---
+title: "Linear Regression Exercise"
+author: "James Martinez"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(reshape2)
+```
+
+## Load the states data
+
+```{r load data}
+# read the states data
+states.data <- readRDS("dataSets/states.rds") 
+
+#get labels
+states.info <- data.frame(attributes(states.data)[c("names", "var.labels")])
+
+#look at last few labels
+tail(states.info, 8)
+```
+
+## Linear Regression
+
+### Examine data before fitting models
+```{r}
+# summary of expense and csat columns, all rows
+sts.ex.sat <- subset(states.data, select = c("expense", "csat"))
+summary(sts.ex.sat)
+
+# correlation between expense and csat
+cor(sts.ex.sat) 
+```
+
+### Plot data before fitting models
+
+```{r}
+# scatter plot of expense vs csat
+plot(sts.ex.sat)
+```
+
+### Example
+
+```{r}
+# Fit our regression model
+sat.mod <- lm(csat ~ expense, # regression formula
+              data=states.data) # data set
+
+# Summarize and print the results
+summary(sat.mod) # show regression coefficients table
+```
+
+### Why is the association between expense and SAT scores *negative*?
+
+Many people find it surprising that the per-capita expenditure on students is negatively related to SAT scores. The beauty of multiple regression is that we can try to pull these apart. What would the association between expense and SAT scores be if there were no difference among the states in the percentage of students taking the SAT?
+
+```{r}
+summary(lm(csat ~ expense + percent, data = states.data))
+```
+
+### The lm class and methods
+
+Examine the object:
+
+```{r}
+class(sat.mod)
+names(sat.mod)
+methods(class = class(sat.mod))
+confint(sat.mod)
+hist(residuals(sat.mod))
+```
+
+### Assumptions of Linear Regression
+
+* Ordinary least squares regression relies on several assumptions, including that the residuals are normally distributed and homoscedastic, the errors are independent and the relationships are linear.
+* Investigate these assumptions visually by plotting your model:
+
+```{r}
+par(mar = c(4, 4, 2, 2), mfrow = c(1, 2))
+plot(sat.mod, which = c(1, 2))
+```
+
+### Comparing Models
+
+Do congressional voting patterns predict SAT scores over and above expense? Fit two models and compare them:
+
+```{r}
+# fit another model, adding house and senate as predictors
+sat.voting.mod <-  lm(csat ~ expense + house + senate,
+                      data = na.omit(states.data))
+
+sat.mod <- update(sat.mod, data=na.omit(states.data))
+
+# compare using the anova() function
+anova(sat.mod, sat.voting.mod)
+
+summary(sat.voting.mod)
+```
+
+## Exercise 0: least squares regression
+
+1. Fit a model predicting energy consumed per capita (*energy*) from the percentage of residents living in metropolitan areas (*metro*).
+2. Select one or more additional predictors to add to your model repeat. Is this model significantly better than the model with *metro* as the only predictor?
+
+### Explore data
+```{r exercise}
+# Use dplyr, tidyr
+# library(tidyverse)
+
+# Summary of energy and metro
+sts.en.met <- states.data %>% 
+  na.omit() %>% 
+  select(energy, metro)
+
+summary(sts.en.met)
+cor(sts.en.met)
+
+sts.en.met %>% 
+  ggplot(aes(x = metro, y = energy)) +
+  geom_point()
+```
+
+### Fit model
+```{r}
+# Fit our regression model
+sts.mod <- lm(energy ~ metro, 
+              data = states.data)
+
+# Summarize and print results
+summary(sts.mod)
+
+# Verify regression assumptions
+par(mar = c(4, 4, 2, 2), mfrow = c(1, 2))
+plot(sts.mod, which = c(1, 2))
+```
+
+The residuals increase sharply towards the positive x-axis, which indicates a positive skew, and a violation of the assumption of normality. This suggests a poor model, which is also demonstrated by the r-squared ($R^2 = 0.1154$).
+
+```{r}
+sts.en.met %>% 
+  ggplot(aes(x = metro, y = energy)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic()
+```
+
+### Add additional predictors
+
+We can add more predictors, but first we should get an idea of the correlations.
+
+```{r}
+# Generate heat map to visual correlations
+states.data %>% 
+  na.omit() %>% 
+  select(3:11) %>% # omit non-numeric and irrelevant columns
+  cor() %>% 
+  melt() %>% 
+  ggplot(aes(x = Var1, y = Var2, fill = value)) +
+    geom_tile() +
+    scale_fill_gradient(low = "blue", high = "yellow") +
+    theme_classic()
+```
+
+Energy seems to be correlated with greenhouse gas and toxics released (*green, toxic*), as well as per capita miles per year (*miles*). In an effort to improve our model, we can add these to the regression.
+
+```{r}
+# Fit our new regression model
+sts.mod2 <- lm(energy ~ metro + miles + toxic + green, 
+              data = states.data)
+
+# Summarize and print results
+summary(sts.mod2)
+
+# Verify regression assumptions
+par(mar = c(4, 4, 2, 2), mfrow = c(1, 2))
+plot(sts.mod2, which = c(1, 2))
+```
+
+The QQ plot shows an approximately symmetric distribution with heavy tails. Based on the adjusted r-squared ($R^2_{adj} = 0.7542$), this model is a significant improvement over the previous model with *metro* as the only predictor. Note that *metro* and *miles* do not appear to benefit the model.
+
+```{r}
+# Fit our new regression model
+sts.mod3 <- lm(energy ~ toxic + green, 
+              data = states.data)
+
+# Summarize and print results
+summary(sts.mod3)
+
+# Verify regression assumptions
+par(mar = c(4, 4, 2, 2), mfrow = c(1, 2))
+plot(sts.mod3, which = c(1, 2))
+
+
+```
+
+Removing them as predictors of *energy* provides a relatively simpler model with comprable predictive power.
+
+## Interactions and factors
+### Modeling interactions
+
+Interactions allow us to assess the extent to which the association between one predictor and the outcome depends on a second predictor. For example: Does the association between expense and SAT scores depend on the median income in the state?
+
+```{r}
+#Add the interaction to the model
+sat.expense.by.percent <- lm(csat ~ expense*income,
+                             data=states.data) 
+#Show the results
+coef(summary(sat.expense.by.percent)) # show regression coefficients table
+```
+
+### Regression with categorical predictors
+
+Let's try to predict SAT scores from region, a categorical variable. Note that you must make sure R does not think your categorical variable is numeric.
+
+```{r}
+# make sure R knows region is categorical
+str(states.data$region)
+
+states.data$region <- factor(states.data$region)
+#Add region to the model
+sat.region <- lm(csat ~ region,
+                 data=states.data) 
+#Show the results
+coef(summary(sat.region)) # show regression coefficients table
+anova(sat.region) # show ANOVA table
+```
+
+### Setting factor reference groups and contrasts
+
+In the previous example we use the default contrasts for region. The default in R is treatment contrasts, with the first level as the reference. We can change the reference group or use another coding scheme using the C function.
+
+```{r}
+# print default contrasts
+contrasts(states.data$region)
+
+# change the reference group
+coef(summary(lm(csat ~ C(region, base=4),
+                data=states.data)))
+
+  # change the coding scheme
+coef(summary(lm(csat ~ C(region, contr.helmert),
+                data=states.data)))
+```
+
+## Exercise 1: interactions and factors
+
+Use the states data set.
+
+1. Add on to the regression equation that you created in exercise 0 by generating an interaction term and testing the interaction.
+2. Try adding region to the model. Are there significant differences across the four regions?
+
+### Add an interaction term
+
+Here, we'll try adding an interaction term between *waste* and *pop*.
+
+```{r}
+# Create a model with an interaction term
+sts.mod4 <- lm(energy ~ toxic + green + waste*pop, 
+              data = states.data)
+
+# Print model summary
+summary(sts.mod4)
+
+# Verify assumptions
+par(mar = c(4, 4, 2, 2), mfrow = c(1, 2))
+plot(sts.mod4, which = c(1, 2))
+
+# Compare
+anova(sts.mod3, sts.mod4)
+```
+
+Adding, the interaction term seems to increase the fit ($R^2_{adj} = 0.7654$), but the results of the `anova` indicate that the newer model doesn't predict *energy* over and above the previous model.
+
+### Add *region*
+
+```{r}
+# Create a model with region
+sts.mod5 <- lm(energy ~ toxic + green + region, 
+              data = states.data)
+
+# Print model summary
+summary(sts.mod5)
+
+# Verify assumptions
+par(mar = c(4, 4, 2, 2), mfrow = c(1, 2))
+plot(sts.mod5, which = c(1, 2))
+
+# Compare
+anova(sts.mod3, sts.mod5)
+```
+
+These results suggest that there is not a significant difference across the four regions.
