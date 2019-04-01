@@ -126,7 +126,9 @@ summary(ex2.imputed)
 model <- glm(everwrk ~ age_p + r_maritl, data = ex2.imputed, family = "binomial")
 summary(model)
 
-# What is the probability of working for each level of marital status (for the mean age surveyed)
+# What is the probability of working for each level of marital status (for the mean age surveyed)?
+
+# Manually
 pred <- with(ex2.imputed,
                 expand.grid(r_maritl = levels(NH11$r_maritl)[-c(1, 4)],
                             age_p = mean(age_p)))
@@ -134,4 +136,8 @@ pred <- with(ex2.imputed,
 cbind(pred, predict(model, type = "response",
                     se.fit = TRUE, interval = "confidence",
                     newdata = pred))
+
+# Automatic
+library(effects)
+data.frame(Effect("r_maritl", model))
 ```
