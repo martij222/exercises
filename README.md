@@ -11,5 +11,5 @@ Basic data manipulation exercise using a toy data set showing product purchases 
 ### CHIS
 Exploratory data analysis exercise using 2009 California Health Information Survey data.
 
-#### Linear Regression
+#### Linear/Logistic Regression
 Exercise from Harvard's [Data Science Services](https://dss.iq.harvard.edu/) regression workshop.
