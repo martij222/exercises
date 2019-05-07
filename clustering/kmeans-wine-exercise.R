@@ -13,6 +13,7 @@ head(wine)
 # Exercise 1: Remove the first column from the data and scale
 # it using the scale() function
 
+df <- scale(wine[-1])
 
 # Now we'd like to cluster the data using K-Means. 
 # How do we decide how many clusters to use if you don't know that already?
@@ -23,20 +24,26 @@ head(wine)
 # graph can suggest the appropriate number of clusters. 
 
 wssplot <- function(data, nc=15, seed=1234){
+  
 	              wss <- (nrow(data)-1)*sum(apply(data,2,var))
-               	      for (i in 2:nc){
-		        set.seed(seed)
+	              
+               	for (i in 2:nc){
+		              set.seed(seed)
 	                wss[i] <- sum(kmeans(data, centers=i)$withinss)}
-	                
-		      plot(1:nc, wss, type="b", xlab="Number of Clusters",
-	                        ylab="Within groups sum of squares")
-	   }
+	              
+		            plot(1:nc, wss, type="b", xlab="Number of Clusters",
+	                        ylab="Within groups sum of squares")}
 
 wssplot(df)
 
 # Exercise 2:
-#   * How many clusters does this method suggest?
-#   * Why does this method work? What's the intuition behind it?
+#   * How many clusters does this method suggest? 
+#       3 clusters
+
+#   * Why does this method work? What's the intuition behind it? 
+#       A sharp vertical drop between points suggests that points within clusters are more similar to one another. 
+#       A bend indicates a similar but lesser effect, so we choose the number of clusters that gives us the largest benefit before that benefit tapers off.
+
 #   * Look at the code for wssplot() and figure out how it works
 
 # Method 2: Use the NbClust library, which runs many experiments
@@ -50,14 +57,17 @@ barplot(table(nc$Best.n[1,]),
 		            main="Number of Clusters Chosen by 26 Criteria")
 
 
-# Exercise 3: How many clusters does this method suggest?
+# Exercise 3: 
+# How many clusters does this method suggest?
+#   3 clusters
 
 
 # Exercise 4: Once you've picked the number of clusters, run k-means 
 # using this number of clusters. Output the result of calling kmeans()
 # into a variable fit.km
 
-# fit.km <- kmeans( ... )
+set.seed(1234)
+fit.km <- kmeans(df, 3, nstart = 25)
 
 # Now we want to evaluate how well this clustering does.
 
@@ -65,9 +75,13 @@ barplot(table(nc$Best.n[1,]),
 # compares to the actual wine types in wine$Type. Would you consider this a good
 # clustering?
 
+table(fit.km$cluster, wine$Type)
+
+# I'd say this is a good clustering because it correctly classifies all but 6 wines
 
 # Exercise 6:
 # * Visualize these clusters using  function clusplot() from the cluster library
 # * Would you consider this a good clustering?
 
-#clusplot( ... )
+library(cluster)
+clusplot(pam(df,3))
